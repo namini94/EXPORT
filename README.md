@@ -1,7 +1,10 @@
 # EXPORT
 ![GitHub Logo](/Miscel/Fig1.png)
 ## Overview
-**MU**lti-sample **S**patial **T**ranscriptomics data **AN**alysis with cross-sample transcriptional similarity **G**uidance (**MUSTANG**) is a computaional framework, which is capable of performing multi-sample spatial transcriptomics spot cellualar deconvolution by allowing both cross-sample expression based similarity information sharing as well as spatial correlation in gene expression patterns within samples.
+**EXP**lainable VAE for **OR**dinally perturbed **T**ranscriptomics data (**EXPORT**) is  an interpretable VAE model with a
+biological pathway informed architecture, to analyze ordinally perturbed transcriptomics data. Specifically, the low-dimensional latent representations in EXPORT are
+ordinally-guided by training an auxiliary deep ordinal regressor network and explicitly modeling the ordinality in the training loss function with an additional ordinal-based
+cumulative link loss term.
 
 ## Citation
 
