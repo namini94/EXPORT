@@ -13,7 +13,7 @@ If you use this code, please cite our preprint [paper](https://www.biorxiv.org/c
 ```
 Niyakan, S., Luo, X., Yoon, B. & Qian, X. (2024). Biologically Interpretable VAE with Supervision for Transcriptomics Data Under Ordinal Perturbations, bioRxiv. https://www.biorxiv.org/content/early/2024/03/29/2024.03.28.587231
 ```
-## Quick Start
+## Getting Started
 In order to analyze your multi-sample spatial transcriptional (ST) data with MUSTANG, 4 main steps should be performed:
 
 1.  **Spots Spatial Graph**: The adjacency matrix of spots spatial graph should be extracted based on the layout.
