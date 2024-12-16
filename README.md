@@ -22,7 +22,8 @@ In order to analyze your multi-sample spatial transcriptional (ST) data with MUS
 1.  **Bayesian Deconvolution Analysis**: The Poisson discrete deconvolution model should be applied to extract the deconvolution parameters.
 
 ## Tutorials
-- [Analysis of Mouse Brain ST data with `MUSTANG`](https://github.com/namini94/MUSTANG/blob/main/Tutorial/Mouse%20Brain%20/Mouse_Brain.md)
-- [Semi-Synthetic Multi-sample Data Generation](https://github.com/namini94/MUSTANG/blob/main/Tutorial/Semi-synthetic%20Data%20Simulation/DataSimulation.md)
+- [Analysis of Bulk-level Radiation data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/Radiation/Radiation.mdd)
+- [Analysis of Single cell-level TCDD data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/TCDD/TCDD.md)
+- [Analysis of Multiplexed Single cell-level Sci-Plex data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/Sci-Plex/SciPlex.md)
 
 
