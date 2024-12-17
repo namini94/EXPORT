@@ -1267,7 +1267,7 @@ After training, you can:
 3. Analyze pathway activities
 4. Perform differential activity analysis
 
-Example Visualization:
+Example Latent Space Visualization:
 ```python
 dataset = Radbio_Dataset(dataset_size=57284,train=True, ratio=1)
 x,y,d = dataset.data
@@ -1292,7 +1292,10 @@ plt.ylabel('UMAP-2', fontsize=12)
 plt.xticks(fontsize=12)
 plt.yticks(fontsize=12)
 
+```
 
+Example Pathway Activity Visualization:
+```python
 pathway_dict = _read_gmt('/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt')
 pathway_list = list(pathway_dict.keys())+['UNANNOTATED_'+str(k) for k in range(add_nodes)]
 print(pathway_list)
@@ -1317,6 +1320,18 @@ plt.xticks(fontsize=12)
 plt.yticks(fontsize=12)
 
 ```
+Example Differential Pathway Activity Analysis:
+
+```python
+X = pd.read_csv('/Users/naminiyakan/Documents/VEGA_Code/TCDD/count_portal.csv',header=0,index_col=0)
+
+da_df = model.differential_activity(X=X, fdr_target=0.05, group1='Low', group2='High', mode='vanilla')
+print(da_df.head(20))
+pd.DataFrame(da_df).to_csv("/Users/naminiyakan/Documents/VEGA_Code/TCDD/DE_Pathway_SVEGA/LH_vanilla.csv",index=True)
+volcano(da_df, group1='Low', group2='High', title='Low vs. High')
+
+```
+
 
 ## File Paths
 
