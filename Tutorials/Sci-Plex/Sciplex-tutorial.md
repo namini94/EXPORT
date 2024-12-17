@@ -1267,11 +1267,10 @@ After training, you can:
 3. Analyze pathway activities
 4. Perform differential activity analysis
 
-Example visualization:
+Example Visualization:
 ```python
-# UMAP visualization
-reducer = umap.UMAP(random_state=42, min_dist=0.5, n_neighbors=15)
-embedding = reducer.fit_transform(latent)
+
+
 ```
 
 ## File Paths
