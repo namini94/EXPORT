@@ -22,7 +22,7 @@ EXPORT needs 3 main items to analyze your perturbed transcriptomics data:
 
 
 ## Tutorials
-- [Pre-processing Single cell-level TCDD data](https://github.com/namini94/EXPORT/blob/main/Tutorials/TCDD/TCDD-preprocess-tutorial.md)
+- [Pre-processing Single cell-level TCDD data](https://github.com/namini94/EXPORT/blob/main/Tutorials/TCDD/TCDD-preproces-tutorial.md)
 - [Analysis of Single cell-level TCDD data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/TCDD/TCDD-tutorial.md)
 
 
