@@ -22,8 +22,7 @@ EXPORT needs 3 main items to analyze your perturbed transcriptomics data:
 
 
 ## Tutorials
-- [Analysis of Bulk-level Radiation data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/Radiation/Radiation.mdd)
 - [Analysis of Single cell-level TCDD data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/TCDD/TCDD.md)
-- [Analysis of Multiplexed Single cell-level Sci-Plex data with `EXPORT`](https://github.com/namini94/EXPORT/blob/main/Tutorials/Sci-Plex/SciPlex.md)
+
 
 
