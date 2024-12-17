@@ -1,7 +1,7 @@
 """
-VEGA (Variational Encoder for Gene Activity)
+SVEGA (Supervised Variational Encoder for Gene Activity)
 
-VEGA is a deep learning framework for analyzing gene expression data with pathway annotations.
+SVEGA (EXPORT) is a deep learning framework for analyzing gene expression data with pathway annotations.
 It uses a variational autoencoder architecture with a customized decoder that incorporates
 prior biological knowledge in the form of pathway annotations.
 
@@ -16,8 +16,8 @@ The framework supports:
 __version__ = "1.0.0"
 
 # List of maintainers
-__maintainer__ = "Your Name"
-__email__ = "your.email@example.com"
+__maintainer__ = "Nami Niyakan"
+__email__ = "naminiyakan@tamu.edu"
 
 # Import main classes and functions for easy access
 from .models import SVEGA, DecoderVEGA, DecoderVEGACount
