@@ -1,6 +1,6 @@
-# EXPORT: Gene Expression Analysis Tutorial
+# EXPORT: Pathway-based analysis of ordinally perturbed single-cell TCDD data
 
-This tutorial explains the codebase for VEGA (Variational Encoder for Gene Activity), a deep learning framework for analyzing gene expression data with pathway annotations. We'll break down the code into its main components and explain each part.
+This tutorial explains the codebase for EXPORT (Explainable VAE for analyzing ordinally perturbed transcriptomics data), a deep learning framework for analyzing ordinally perturbed gene expression data with pathway annotations. We'll break down the code into its main components and explain each part.
 
 ## Code Structure
 
