@@ -1,6 +1,6 @@
-# Single-cell RNA Analysis Tutorial with Scanpy
+# Single-cell resoloution TCDD data preprocessing tutorial
 
-This tutorial demonstrates how to perform basic single-cell RNA analysis using the Scanpy library, focusing on preprocessing and filtering cell populations.
+This tutorial demonstrates how to preprocess the single-cell TCDD data for further anaysis using our EXPORT model.
 
 ## Prerequisites
 
@@ -67,7 +67,7 @@ portal_adata = adata[(adata.obs["celltype"] == cell)]
 
 ## Data Export
 
-Export the processed data to CSV files for further analysis or visualization.
+Export the processed data to CSV files for further analysis.
 
 ```python
 # Export count matrix
@@ -81,37 +81,4 @@ pd.DataFrame(portal_adata.obs).to_csv("metadata_portal.csv", index=True)
 pd.DataFrame(portal_adata.var['highly_variable']).to_csv("HVG_portal.csv", index=True)
 ```
 
-## Key Concepts and Notes
 
-1. **AnnData Object**: The central data structure in Scanpy
-   - `.obs`: Contains cell annotations (metadata)
-   - `.var`: Contains gene annotations
-   - `.X`: Contains the expression matrix
-
-2. **Preprocessing Steps**:
-   - Normalization adjusts for differences in sequencing depth
-   - Log transformation helps to handle the large dynamic range of expression values
-   - Highly variable genes selection reduces dimensionality and focuses on biologically relevant signals
-
-3. **Data Organization**:
-   - The final exported files provide:
-     - Raw counts matrix
-     - Cell metadata
-     - Information about highly variable genes
-
-## Troubleshooting Tips
-
-- Ensure the H5AD file path is correct
-- Check if cell type names match exactly with the data
-- Monitor memory usage when working with large datasets
-- Verify that the exported CSV files contain the expected information
-
-## Next Steps
-
-After completing these preprocessing steps, you can proceed with:
-- Dimensionality reduction (PCA, UMAP)
-- Clustering analysis
-- Differential expression analysis
-- Trajectory inference
-
-Remember to adjust parameters like `n_top_genes` based on your specific analysis needs and dataset characteristics.
