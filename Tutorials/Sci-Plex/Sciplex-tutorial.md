@@ -571,8 +571,411 @@ The main model class `SVEGA` includes:
 
 ```python
 class SVEGA(nn.Module):
-    def __init__(self, input_dim, dropout, n_gmvs, z_dropout, ...):
-        # Model initialization
+    def __init__(self, input_dim, dropout, n_gmvs, z_dropout, gmt_paths: Union[list,str] =None, add_nodes: int = 1,min_genes: int = 0,
+                max_genes: int =5000,
+                positive_decoder: bool = True, exp_paths: Union[list,str] =None, regularizer: str = 'mask' ):
+        super(SVEGA, self).__init__()
+        self.add_nodes_ = add_nodes
+        self.min_genes_ = min_genes
+        self.max_genes_ = max_genes
+        self.pos_dec_ = positive_decoder
+        self.X = pd.read_csv(exp_paths,header=0,index_col=0)
+        self.X = self.X.T
+        self.features =  self.X.index.tolist()
+        
+        self.regularizer_ = regularizer
+         
+        if gmt_paths:
+            self.gmv_mask = create_mask(self.features ,gmt_paths, add_nodes, self.min_genes_, self.max_genes_)
+        self.encoder = FCLayers(n_in=input_dim,         ## This is going to be FC-1 and FC-2 in Sup_VEGA.pdf
+                n_out=800,
+                n_cat_list=None,
+                n_layers=2,
+                n_hidden=800,
+                dropout_rate=dropout)
+        self.mean = nn.Sequential(nn.Linear(800, n_gmvs), 
+                                    nn.Dropout(z_dropout))  ## This is the mean in Sup_VEGA.pdf
+        self.logvar = nn.Sequential(nn.Linear(800, n_gmvs), 
+                                    nn.Dropout(z_dropout))  ## This is the logvar in Sup_VEGA.pdf
+        
+        #=========== decoder ================
+        self.decoder = DecoderVEGA(mask = self.gmv_mask.T,
+                                    n_cat_list = None,
+                                    regularizer = self.regularizer_,
+                                    positive_decoder = self.pos_dec_
+                                    )
+
+        if self.pos_dec_:
+            print('Constraining decoder to positive weights', flush=True)
+            #self.decoder.sparse_layer[0].reset_params_pos()
+            #self.decoder.sparse_layer[0].weight.data *= self.decoder.sparse_layer[0].mask
+            self.decoder._positive_weights()
+        #=========== classifier ================
+        #self.cl1 = nn.Sequential(nn.Linear(n_gmvs, 3))              ###TODOO: What is 2?
+        
+        #=========== Regressor =================
+        #self.reg0 = nn.Linear(n_gmvs,n_gmvs)
+        
+        #self.reg1 = nn.Linear(n_gmvs, 1)
+        #self.relu = nn.ReLU()
+        
+        self.regressor = nn.Sequential(
+            nn.Linear(n_gmvs,n_gmvs),
+            nn.Linear(n_gmvs, 1),
+            nn.ReLU()
+        )
+        
+        self.ordinal_reg = OrdinalLogisticModel(self.regressor,num_classes=9)
+        
+
+
+    def encode(self, X):
+        y = self.encoder(X)
+        mu, logvar = self.mean(y), self.logvar(y)
+        z = self.sample_latent(mu, logvar)
+        return z, mu, logvar
+
+    def sample_latent(self, mu, logvar):
+        std = logvar.mul(0.5).exp_()
+        eps = torch.FloatTensor(std.size()).normal_()
+        eps = eps.mul_(std).add_(mu)
+        return eps
+
+    @torch.no_grad()
+    def to_latent(self, X):
+        """ Same as encode, but only returns z (no mu and logvar) """
+        y = self.encoder(X)
+        mu, logvar = self.mean(y), self.logvar(y)
+        z = self.sample_latent(mu, logvar)
+        return z
+    
+    @torch.no_grad()
+    def differential_activity(self,
+                            X ,
+                            group1: Union[str,list] = None,
+                            group2: Union[str,list] = None,
+                            mode: str = 'change',
+                            delta: float = 2.,
+                            fdr_target: float = 0.05,
+                            **kwargs):
+        """
+        Bayesian differential activity procedures for GMVs.
+        Similar to scVI [Lopez2018]_ Bayesian DGE but for latent variables.
+        Differential results are saved in the adata object and returned as a DataFrame.
+ 
+        Parameters
+        ----------
+        groupby
+            anndata object field to group cells (eg. `"cell type"`)
+        adata
+            scanpy single-cell object. If None, use Anndata attribute of VEGA.
+        group1
+            reference group(s).
+        group2
+            outgroup(s).
+        mode
+            differential activity mode. If `"vanilla"`, uses [Lopez2018]_, if `"change"` uses [Boyeau2019]_.
+        delta
+            differential activity threshold for `"change"` mode.
+        fdr_target
+            minimum FDR to consider gene as DE.
+        **kwargs
+            optional arguments of the bayesian_differential method.
+        
+        Returns
+        -------
+        Differential activity results
+            
+        """
+        dosage = pd.read_csv('/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_metadata_portal.csv',header=0,index_col=0)
+        level=dosage.iloc[:,3]
+        # Check for grouping
+        if type(group1)==str:
+            group1 = [group1]
+        # Loop over groups
+        diff_res = dict()
+        df_res = []
+        for g in group1:
+            # get indices and compute values
+            idx_g1 = dosage.index.values[dosage.iloc[:,3] == g]
+            name_g1 = str(g)
+            if not group2:
+                idx_g2 = ~idx_g1
+                name_g2 = 'rest'
+            else: 
+                idx_g2 = dosage.index.values[dosage.iloc[:,3] == group2]
+                name_g2 = str(group2)
+            res_g = self.bayesian_differential(X,
+                                                idx_g1,
+                                                idx_g2,
+                                                mode=mode,
+                                                delta=delta,
+                                                **kwargs)
+            diff_res[name_g1+' vs.'+name_g2] = res_g
+            # report results as df
+            dict_gmv = OrderedDict()
+            # Check if path is a string
+            gmt_paths='/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt'
+            if type(gmt_paths) == str:
+                gmt_paths = [gmt_paths]
+                for f in gmt_paths:
+                    d_f = _read_gmt(f, sep='\t', min_g=min_genes, max_g=max_genes)
+                    # Add to final dictionary
+                    dict_gmv.update(d_f)
+
+
+            gmv_names = list(dict_gmv.keys()) + ['UNANNOTATED_'+str(k) for k in range(add_nodes)]
+
+            df = pd.DataFrame(res_g, index=gmv_names)
+            sort_key = "p_da" if mode == "change" else "bayes_factor"
+            df = df.sort_values(by=sort_key, ascending=False)
+            if mode == 'change':
+                df['is_da_fdr_{}'.format(fdr_target)] = _fdr_de_prediction(df['p_da'], fdr=fdr_target)
+            # Add names to result df
+            df['comparison'] = '{} vs. {}'.format(name_g1, name_g2)
+            df['group1'] = name_g1
+            df['group2'] = name_g2
+            df_res.append(df)
+        # Concatenate df results
+        result = pd.concat(df_res, axis=0)
+        # Put results in Anndata object
+        #adata.uns['_vega']['differential'] = diff_res
+        return result
+    
+    
+    @torch.no_grad()    
+    def bayesian_differential(self,
+                                X,
+                                cell_idx1: list, 
+                                cell_idx2: list, 
+                                n_samples: int = 5000, 
+                                use_permutations: bool = True, 
+                                n_permutations: int = 5000,
+                                mode: int = 'change',
+                                delta: float = 2.,
+                                alpha: float = 0.66,
+                                random_seed: bool = False):
+        """ 
+        Run Bayesian differential expression in latent space.
+        Returns Bayes factor of all factors.
+        Parameters
+        ----------
+        adata
+            anndata single-cell object.
+        cell_idx1
+            indices of group 1.
+        cell_idx2
+            indices of group 2.
+        n_samples
+            number of samples to draw from the latent space.
+        use_permutations
+            whether to use permutations when computing the double integral.
+        n_permutations
+            number of permutations for MC integral.
+        mode
+            differential activity test strategy. `"vanilla"` corresponds to [Lopez2018]_, `"change"` to [Boyeau2019]_.
+        delta
+            for mode `"change"`, the differential threshold to be used.
+        random_seed
+            seed for reproducibility.
+        Returns
+        -------
+        res
+            dictionary with results (Bayes Factor, Mean Absolute Difference)
+        """
+        #self.eval()
+        # Set seed for reproducibility
+        #print(mode, delta, alpha)
+        if random_seed:
+            torch.manual_seed(random_seed)
+            np.random.seed(random_seed)
+        if mode not in ['vanilla', 'change']:
+            raise ValueError('Differential mode not understood. Pick one of "vanilla", "change"')
+        epsilon = 1e-12
+        # Subset data
+        #if sparse.issparse(adata.X):
+            #adata1, adata2 = adata.X.A[cell_idx1,:], adata.X.A[cell_idx2,:]
+        #else:
+        X1, X2 = X.loc[cell_idx1], X.loc[cell_idx2]
+        # Sample cell from each condition
+        idx1 = np.random.choice(X1.index.values, n_samples)
+        idx2 = np.random.choice(X2.index.values, n_samples)
+        # To latent
+        z1 = self.to_latent(torch.Tensor(X1.loc[idx1].values)).detach().numpy()
+        z2 = self.to_latent(torch.Tensor(X2.loc[idx2].values)).detach().numpy()
+        # Compare samples by using number of permutations - if 0, just pairwise comparison
+        # This estimates the double integral in the posterior of the hypothesis
+        if use_permutations:
+            z1, z2 = self._scale_sampling(z1, z2, n_perm=n_permutations)
+        if mode=='vanilla':
+            p_h1 = np.mean(z1 > z2, axis=0)
+            p_h2 = 1.0 - p_h1
+            md = np.mean(z1 - z2, axis=0)
+            bf = np.log(p_h1 + epsilon) - np.log(p_h2 + epsilon) 
+            # Wrap results
+            res = {'p_h1':p_h1,
+                    'p_h2':p_h2,
+                    'bayes_factor': bf,
+                    'differential_metric':md}
+        else:
+            diffs = z1 - z2
+            md = diffs.mean(0)
+            #if not delta:
+            #    delta = _estimate_delta(md, min_thresh=1., coef=0.6)
+            p_da = np.mean(np.abs(diffs) > delta, axis=0)
+            is_da_alpha = (np.abs(md) > delta) & (p_da > alpha)
+            res = {'p_da':p_da,
+                    'p_not_da':1.-p_da,
+                    'bayes_factor':np.log(p_da+epsilon) - np.log((1.-p_da)+epsilon),
+                    'is_da_alpha_{}'.format(alpha):is_da_alpha,
+                    'differential_metric':md,
+                    'delta':delta
+                    }
+        return res
+    
+    @staticmethod
+    def _scale_sampling(arr1, arr2, n_perm=1000):
+        """
+        Use permutation to better estimate double integral (create more pair comparisons)
+        Inspired by scVI (Lopez et al., 2018)
+        Parameters
+        ----------
+        arr1
+            array with data of group 1
+        arr2
+            array with data of group 2
+        n_perm
+            number of permutations
+        Returns
+        -------
+        scaled1
+            samples for group 1
+        scaled2
+            samples for group 2
+        """
+        u, v = (np.random.choice(arr1.shape[0], size=n_perm), np.random.choice(arr2.shape[0], size=n_perm))
+        scaled1 = arr1[u]
+        scaled2 = arr2[v]
+        return scaled1, scaled2
+
+    def decode(self, z, cat_covs=None):
+        """ 
+        Decode data from latent space.
+        
+        Parameters
+        ----------
+        z
+            data embedded in latent space
+        batch_index
+            batch information for samples
+        cat_covs
+            categorical covariates.
+        Returns
+        -------
+        X_rec
+            decoded data
+        """
+        
+        X_rec = self.decoder(z)
+        return X_rec
+
+
+    def forward(self, tensors):
+        #input_encode = self._get_inference_input(tensors)
+        z, mu, logvar = self.encode(tensors)
+        #input_decode = self._get_generative_input(tensors, z)
+        #X_rec = self.decode(**input_decode)
+        X_rec = self.decode(z)
+        #===== Classifier =============
+        #cl1 = self.cl1(z)
+        #y_hat = F.log_softmax(cl1,dim=1)
+        #===== Regressor ==============
+        #r1 = self.reg0(z)
+        #r2 = self.reg1(r1)
+        #dose_hat = self.relu(r2)
+        dose_hat = self.ordinal_reg(z)
+        cutpoints = self.ordinal_reg.link.cutpoints.detach().cpu().numpy()
+        return dose_hat, X_rec, mu, logvar, cutpoints
+
+    def save(self,
+            path: str,
+            save_adata: bool = False,
+            save_history: bool = False,
+            overwrite: bool = True,
+            save_regularizer_kwargs: bool = True):
+        """ 
+        Save model parameters to input directory. Saving Anndata object and training history is optional.
+        Parameters
+        ----------
+        path
+            path to save directory
+        save_adata
+            whether to save the Anndata object in the save directory
+        save_history
+            whether to save the training history in the save directory
+        save_regularizer_kwargs
+            whether to save regularizer hyperparameters (lambda, penalty matrix...) in the save directory
+        """
+        attr = inspect.getmembers(self, lambda a: not (inspect.isroutine(a)))
+        attr = [a for a in attr if not (a[0].startswith("__") and a[0].endswith("__"))]
+        attr_dict = {a[0][:-1]:a[1] for a in attr if a[0][-1]=='_'}
+        # Save
+        if not os.path.exists(path) or overwrite:
+            os.makedirs(path, exist_ok=overwrite)
+        else:
+            raise ValueError(
+                "{} already exists. Please provide an unexisting directory for saving.".format(
+                    path
+                )
+            )
+        
+        with open(os.path.join(path, 'vega_attr.pkl'), 'wb') as f:
+            pickle.dump(attr_dict, f)
+        torch.save(self.state_dict(), os.path.join(path, 'vega_params.pt'))
+        if save_adata:
+            self.adata.write(os.path.join(path, 'anndata.h5ad'))
+        if save_history:
+            with open(os.path.join(path, 'vega_history.pkl'), 'wb') as h:
+                pickle.dump(self.epoch_history, h)
+        
+        print("Model files saved at {}".format(path))
+        return
+
+    @classmethod
+    def load(cls,
+            path: str,
+            adata: AnnData = None,
+            device: torch.device = torch.device('cpu'),
+            reg_kwargs: dict = None):
+        """
+        Load model from directory. If adata=None, try to reload Anndata object from saved directory.
+        Parameters
+        ----------
+        path 
+            path to save directory
+        adata
+            scanpy single cell object
+        device
+            CPU or CUDA
+        """
+        # Reload model attributes
+        with open(os.path.join(path, 'vega_attr.pkl'), 'rb') as f:
+            attr = pickle.load(f)
+        # Reload regularizer if possible
+        
+        
+        # Reload history if possible
+        try:
+            with open(os.path.join(path, 'vega_history.pkl'), 'rb') as h:
+                model.epoch_history = pickle.load(h)
+        except:
+            print('No epoch history file found. Loading model with blank training history.')
+        # Reload model weights
+        model.load_state_dict(torch.load(os.path.join(path, 'vega_params.pt'), map_location=device))
+        
+        print("Model successfully loaded.")
+        return model
+
 ```
 
 Key components:
