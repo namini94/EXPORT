@@ -1031,12 +1031,6 @@ Handles:
 ## 6. Training Loop
 
 ```python
-gmt_paths='/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt'
-add_nodes=1
-min_genes=0
-max_genes= 5000
-positive_decoder= True
-regularizer = 'mask'
 
 #w = 1000000
 w2 = 100000
@@ -1244,12 +1238,23 @@ dropout = 0.1
 n_gmvs = 203
 z_dropout = 0.3
 
+gmt_paths='/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt'
+add_nodes=1
+min_genes=0
+max_genes= 5000
+positive_decoder= True
+regularizer = 'mask'
+
 # Create data loaders
 train_loader = DataLoader(dataset=Radbio_Dataset(dataset_size=57284, train=True, ratio=0.95), 
                          batch_size=128)
 test_loader = DataLoader(dataset=Radbio_Dataset(dataset_size=57284, train=False, ratio=0.95), 
                         batch_size=128)
 
+# Create an instance of the SVEGA model
+model = SVEGA(input_dim, dropout, n_gmvs,z_dropout, gmt_paths, add_nodes, min_genes,
+                max_genes,
+                positive_decoder, exp_paths, regularizer)
 # Train model
 model, res = train(train_loader, test_loader)
 ```
