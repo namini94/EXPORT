@@ -1031,11 +1031,91 @@ Handles:
 ## 6. Training Loop
 
 ```python
-def train(train_loader, test_loader):
-    # Training parameters
+gmt_paths='/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt'
+add_nodes=1
+min_genes=0
+max_genes= 5000
+positive_decoder= True
+regularizer = 'mask'
+
+#w = 1000000
+w2 = 100000
+beta = 0.00005
+
+#GroundTruth = pd.read_csv('/Users/naminiyakan/Documents/VEGA/shuffled_data/shuffled_labels_with_test.txt',header=None,sep="\t")
+#GroundTruth = GroundTruth.iloc[:,4]
+
+def train(train_loader,test_loader):
+    
+    # Hyperparameters
+    #batch_size = 128
     learning_rate = 0.0001
-    w2 = 100000
-    beta = 0.00005
+    
+    DNN = SVEGA(input_dim, dropout, n_gmvs, z_dropout, gmt_paths, add_nodes, min_genes,
+                max_genes,
+                positive_decoder, exp_paths, regularizer)
+    #DNN.cuda()
+    
+    epochs = 50
+
+    classificationLoss = torch.nn.NLLLoss()
+    #reconstructionLoss = nn.L1Loss()
+    #reconstructionLoss = F.mse_loss()
+    #optimizer = optim.SGD(DNN.parameters(), lr = 0.001, momentum = 0.8) ## Neurips paper Github code
+    optimizer = optim.Adam(DNN.parameters(), lr=learning_rate, weight_decay=5e-4)
+    res = []
+    for epoch in range(epochs):
+        DNN.train()
+        model_acc = 0.0
+        model_loss = 0.0
+        for batch_idx, (data,label,dose) in enumerate(train_loader):
+            #data = Variable(data).cuda()
+            #label = Variable(label).cuda()
+            optimizer.zero_grad()
+            dose_hat, x_hat, mu, logvar, cutpoints = DNN(data)
+            kld = -0.5 * torch.sum(1. + logvar - mu.pow(2) - logvar.exp(), )
+            #loss = wp*classificationLoss(y_hat,label)+wr*reconstructionLoss(x_hat,data)
+            #dose_loss = w2 * F.mse_loss(dose_hat,dose,reduction="sum")
+            #print(dose)
+            #print(dose_hat)
+            #print(dose_hat.shape)
+            #print(dose.unsqueeze(1).shape)
+            #dose_loss =  torch.as_tensor(CumulativeLinkLoss(dose_hat,dose,reduction="sum"),dtype=dose.dtype)
+            dose_loss =  cumulative_link_loss(dose_hat,dose.unsqueeze(1))
+            #print(torch.is_tensor(dose_loss))
+            #print(torch.as_tensor(dose_loss))
+            #loss = w * classificationLoss(y_hat,label) +  torch.mean(F.mse_loss(x_hat,data, reduction="sum") + beta * kld )+ w2*dose_loss
+            loss = torch.mean(F.mse_loss(x_hat,data, reduction="sum") + beta * kld )+ w2*dose_loss
+            loss.backward()               # Perform the backward pass to calculate the gradients
+            optimizer.step()              # Take optimizer step to update the weights
+            if positive_decoder:
+                    #self.decoder.sparse_layer[0].apply(clipper)
+                    DNN.decoder._positive_weights()
+            #_,predicted = torch.max(y_hat.data,1)
+            #num_correct = (predicted==label).sum().item()
+            #model_acc += num_correct/(len(train_loader)*data.size(0))
+            model_loss += loss.item()/len(train_loader)
+        print('Epoch: ', epoch, ' - train_loss: ',model_loss)
+
+
+        DNN.eval()
+        
+        test_acc = 0.0
+        test_loss = 0.0
+        total_data = 0.0
+        for data, label, dose in test_loader:
+            #data = Variable(data).cuda()
+            #label = Variable(label).cuda()
+            dose_hat, x_hat, mu, logvar, cutpoints = DNN(data)
+            pred = np.array(dose_hat.cpu().detach()).argmax(axis=1)
+            #print(pred)
+            #print(cutpoints)
+            #_,predicted = torch.max(y_hat.data,1)
+            #total_data += label.size(0)
+            #test_acc += (predicted==label).sum().item()/(len(test_loader)*data.size(0))
+        #print('Model Test accuracy: ', test_acc)
+        res.append([epoch, model_loss , pred])
+    return DNN, res
 ```
 
 The training procedure includes:
