@@ -79,8 +79,133 @@ Key features:
 ## 3. Mask Creation Utilities
 
 ```python
-def create_mask(feature_list, gmt_paths, add_nodes, min_genes, max_genes):
-    """Initialize mask M for GMV from GMT files"""
+def create_mask( feature_list,
+                gmt_paths: Union[str,list] = None,
+                add_nodes: int = 1,
+                min_genes: int = 0,
+                max_genes: int = 1000):
+    """ 
+    Initialize mask M for GMV from one or multiple .gmt files.
+    Parameters
+    ----------
+        adata
+            Scanpy single-cell object.
+        gmt_paths
+            One or several paths to .gmt files.
+        add_nodes
+            Additional latent nodes for capturing additional variance.
+        min_genes
+            Minimum number of genes per GMV.
+        max_genes
+            Maximum number of genes per GMV.
+        copy
+            Whether to return a copy of the updated Anndata object.
+    Returns
+    -------
+        adata
+            Scanpy single-cell object.
+    """
+    dict_gmv = OrderedDict()
+    # Check if path is a string
+    if type(gmt_paths) == str:
+        gmt_paths = [gmt_paths]
+    for f in gmt_paths:
+        d_f = _read_gmt(f, sep='\t', min_g=min_genes, max_g=max_genes)
+        # Add to final dictionary
+        dict_gmv.update(d_f)
+
+    # Create mask
+    mask = _make_gmv_mask(feature_list=feature_list, dict_gmv=dict_gmv, add_nodes=add_nodes)
+
+    
+    gmv_names = list(dict_gmv.keys()) + ['UNANNOTATED_'+str(k) for k in range(add_nodes)]
+    add_nodes = add_nodes  
+    pd.DataFrame(mask).to_csv("/Users/naminiyakan/Documents/VEGA_Code/TCDD/latent/mask.csv",index=True)
+    return mask
+        
+
+def _make_gmv_mask(feature_list, dict_gmv, add_nodes):
+    """ 
+    Creates a mask of shape [genes,GMVs] where (i,j) = 1 if gene i is in GMV j, 0 else.
+    Note: dict_gmv should be an Ordered dict so that the ordering can be later interpreted.
+    Parameters
+    ----------
+        feature_list
+            List of genes in single-cell dataset.
+        dict_gmv
+            Dictionary of gene_module:genes.
+        add_nodes
+            Number of additional, fully connected nodes.
+    Returns
+    -------
+        p_mask
+            Gene module mask
+    """
+    assert type(dict_gmv) == OrderedDict
+    p_mask = np.zeros((len(feature_list), len(dict_gmv)))
+    for j, k in enumerate(dict_gmv.keys()):
+        for i in range(p_mask.shape[0]):
+            if feature_list[i] in dict_gmv[k]:
+                p_mask[i,j] = 1.
+    # Add unannotated nodes
+    n = add_nodes
+    vec = np.ones((p_mask.shape[0], n))
+    p_mask = np.hstack((p_mask, vec))
+    return p_mask
+
+def _dict_to_gmt(dict_obj, path_gmt, sep='\t', second_col=True):
+    """ 
+    Write dictionary to gmt format.
+    Parameters
+    ----------
+        dict_obj
+            Dictionary with gene_module:[members]
+        path_gmt
+            Path to save gmt file
+        sep
+            Separator to use when writing file
+        second_col
+            Whether to duplicate the first column        
+    """
+    with open(path_gmt, 'w') as f:
+        for k,v in dict_obj.items():
+            if second_col:
+                to_write = sep.join([k,'SECOND_COL'] + v)+'\n'
+            else:
+                to_write = sep.join([k] + v) + '\n'
+            f.write(to_write)
+    return
+         
+
+def _read_gmt(fname, sep='\t', min_g=0, max_g=5000):
+    """
+    Read GMT file into dictionary of gene_module:genes.
+    min_g and max_g are optional gene set size filters.
+    
+    Parameters
+    ----------
+        fname
+            Path to gmt file
+        sep
+            Separator used to read gmt file.
+        min_g
+            Minimum of gene members in gene module
+        max_g
+            Maximum of gene members in gene module
+    Returns
+    -------
+        dict_gmv
+            Dictionary of gene_module:genes
+    """
+    dict_gmv = OrderedDict()
+    with open(fname) as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            val = line.split(sep)
+            if min_g <= len(val[2:]) <= max_g:
+                dict_gmv[val[0]] = val[2:]
+    return dict_gmv
 ```
 
 This section includes functions for:
