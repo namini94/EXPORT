@@ -1,4 +1,4 @@
-# VEGA: Gene Expression Analysis Tutorial
+# EXPORT: Gene Expression Analysis Tutorial
 
 This tutorial explains the codebase for VEGA (Variational Encoder for Gene Activity), a deep learning framework for analyzing gene expression data with pathway annotations. We'll break down the code into its main components and explain each part.
 
@@ -1269,7 +1269,52 @@ After training, you can:
 
 Example Visualization:
 ```python
+dataset = Radbio_Dataset(dataset_size=57284,train=True, ratio=1)
+x,y,d = dataset.data
+print(y)
+x = torch.from_numpy(x)
+latent = model.to_latent(x)
 
+reducer = umap.UMAP(random_state=42, min_dist=0.5, n_neighbors=15)
+embedding = reducer.fit_transform(latent)
+
+umap_df = pd.DataFrame({'UMAP-1':embedding[:,0], 'UMAP-2':embedding[:,1],
+                        'level':y})
+
+plt.figure(figsize=[5,4])
+plt.scatter(x=embedding[:,0],y=embedding[:,1],c=d, cmap='plasma', s=3, alpha = 0.7,linewidths=0,marker='o')
+cbar = plt.colorbar()
+#sns.scatterplot(x='UMAP-1', y='UMAP-2', c=y, data=umap_df,
+#                linewidth=0, alpha=0.7, s=13)
+#plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0., fontsize=12, frameon=False, markerscale=2)
+plt.xlabel('UMAP-1', fontsize=12)
+plt.ylabel('UMAP-2', fontsize=12)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+
+
+pathway_dict = _read_gmt('/Users/naminiyakan/Documents/VEGA_Code/TCDD/Finalized_Wikipathway.gmt')
+pathway_list = list(pathway_dict.keys())+['UNANNOTATED_'+str(k) for k in range(add_nodes)]
+print(pathway_list)
+
+dosage = pd.read_csv('/Users/naminiyakan/Documents/VEGA_Code/TCDD/metadata_portal.csv',header=0,index_col=0)
+
+pathway_encoded_df = pd.DataFrame(data=latent,index=dosage.index.values, columns=pathway_list)
+print(pathway_encoded_df)
+pd.DataFrame(pathway_encoded_df).to_csv("/Users/naminiyakan/Documents/VEGA_Code/TCDD/latent/pathway_encoded_df.csv",index=True)
+
+
+plt.figure(figsize=[5,4])
+plt.scatter(embedding[:,0], embedding[:,1], alpha = 0.7, linewidths=0,
+            c = pathway_encoded_df['Aflatoxin B1 metabolism%WikiPathways_20240101%WP1262%Mus musculus'], marker='o', s=3, cmap = 'seismic')
+cbar = plt.colorbar()
+for t in cbar.ax.get_yticklabels():
+     t.set_fontsize(12)
+plt.title('Aflatoxin B1 Metabolism', fontsize=12)
+plt.xlabel('UMAP-1', fontsize=12)
+plt.ylabel('UMAP-2', fontsize=12)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
 
 ```
 
