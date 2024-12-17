@@ -989,8 +989,38 @@ Key components:
 
 ```python
 class Radbio_Dataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_size, train=True, ratio=0.8):
-        # Dataset initialization
+    def __init__(self, dataset_size, train=True , ratio=0.8):
+        X = pd.read_csv('/Users/naminiyakan/Documents/VEGA_Code/TCDD/count_portal.csv',header=0,index_col=0)
+        #X = X.to(torch.float32)
+        #print(X.dtypes)
+        dosage = pd.read_csv('/Users/naminiyakan/Documents/VEGA_Code/TCDD/metadata_portal.csv',header=0)
+        Y=dosage.iloc[:,2]
+        W=dosage.iloc[:,2]
+        # set training and test data size
+        train_size=int(ratio*dataset_size)
+        self.train=train
+
+        self.data=(X.values.astype(np.float32),Y.values.astype(int),W.values.astype(int))
+
+        if self.train:
+            X=X[:train_size]
+            Y=Y[:train_size]
+            W=W[:train_size]
+            print("Training on {} examples".format(train_size))
+        else:
+            X=X[train_size:]
+            Y=Y[train_size:]
+            W=W[train_size:]
+            print("Testing on {} examples".format(dataset_size-train_size))
+    def __getitem__(self, idx):
+        "accessing one element in the dataset by index"
+        sample=(self.data[0][idx,...],self.data[1][idx],self.data[2][idx])
+        return sample
+ 
+    def __len__(self):
+        "size of the entire dataset"
+        return len(self.data[1])
+
 ```
 
 Handles:
