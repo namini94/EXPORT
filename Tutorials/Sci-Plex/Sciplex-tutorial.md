@@ -1129,15 +1129,111 @@ The training procedure includes:
 The code includes functions for:
 1. Volcano Plot Creation:
 ```python
-def volcano(dfe_res, group1, group2, sig_lvl=3., metric_lvl=3., ...):
-    # Volcano plot implementation
+def volcano(dfe_res,
+            group1: str,
+            group2: str,
+            sig_lvl: float = 3.,
+            metric_lvl: float = 3.,
+            annotate_gmv: Union[str,list] = None,
+            s:int = 10,
+            fontsize: int = 10,
+            textsize: int = 8,
+            figsize: Union[tuple,list] = None,
+            title: str = False,
+            save: Union[str,bool] = False):
+    """
+    Plot Differential GMV results.
+    Please run the Bayesian differential acitvity method of VEGA before plotting ("model.differential_activity()")
+    
+    Parameters
+    ----------
+    adata
+        scanpy single-cell object
+    group1
+        name of reference group
+    group2
+        name of out-group
+    sig_lvl
+        absolute Bayes Factor cutoff (>=0)
+    metric_lvl
+        mean Absolute Difference cutoff (>=0)
+    annotate_gmv
+        GMV to be displayed. If None, all GMVs passing significance thresholds are displayed
+    s
+        dot size
+    fontsize
+        text size for axis
+    textsize
+        text size for GMV name display
+    title
+        title for plot
+    save
+        path to save figure as pdf
+    """
+   
+    
+    
+    mad = np.abs(dfe_res['differential_metric'])
+    xlim_v = np.abs(dfe_res['bayes_factor']).max() + 0.5
+    ylim_v = mad.max()+0.5
+
+    idx_sig = np.arange(len(dfe_res['bayes_factor']))[(np.abs(dfe_res['bayes_factor'])>sig_lvl) & (mad>metric_lvl)]
+    # Plotting
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.scatter(dfe_res['bayes_factor'], mad,
+                 color='grey', s=s, alpha=0.8, linewidth=0)
+    ax.scatter(dfe_res['bayes_factor'][idx_sig], mad[idx_sig],
+                 color='red', s=s*2, linewidth=0)
+    ax.vlines(x=-sig_lvl, ymin=-0.5, ymax=ylim_v, color='black', linestyles='--', linewidth=1., alpha=0.2)
+    ax.vlines(x=sig_lvl, ymin=-0.5, ymax=ylim_v, color='black', linestyles='--', linewidth=1., alpha=0.2)
+    ax.hlines(y=metric_lvl, xmin=-xlim_v, xmax=xlim_v, color='black', linestyles='--', linewidth=1., alpha=0.2)
+    texts = []
+    if not annotate_gmv:
+        for i in idx_sig:
+            name = dfe_res.index.values[i]
+            x = dfe_res['bayes_factor'][i]
+            y = mad[i]
+            texts.append(plt.text(x=x, y=y, s=name, fontdict={'size':textsize}))
+    else:
+        for name in annotate_gmv:
+            i = list(dfe_res.index.values).index(name)
+            x = dfe_res['bayes_factor'][i]
+            y = mad[i]
+            texts.append(plt.text(x=x, y=y, s=name, fontdict={'size':textsize}))
+        
+
+    ax.set_xlabel(r'$\log_e$(Bayes factor)', fontsize=fontsize)
+    ax.set_ylabel('|Differential Metric|', fontsize=fontsize)
+    ax.set_ylim([0,ylim_v])
+    ax.set_xlim([-xlim_v,xlim_v])
+    if title:
+        ax.set_title(title, fontsize=fontsize)
+    #adjust_text(texts, only_move={'texts':'xy'}, arrowprops=dict(arrowstyle="-", color='k', lw=0.5))
+    ax.tick_params(axis="x", labelsize=fontsize)
+    ax.tick_params(axis="y", labelsize=fontsize)
+    plt.grid(False)
+    if save:
+        plt.savefig(save, format=save.split('.')[-1], dpi=rcParams['savefig.dpi'], bbox_inches='tight')
+    plt.show()
+
+
+def _fdr_de_prediction(posterior_probas: np.ndarray, fdr: float = 0.05):
+    """
+    Compute posterior expected FDR and tag features as DE.
+    From scvi-tools.
+    """
+    if not posterior_probas.ndim == 1:
+        raise ValueError("posterior_probas should be 1-dimensional")
+    sorted_genes = np.argsort(-posterior_probas)
+    sorted_pgs = posterior_probas[sorted_genes]
+    cumulative_fdr = (1.0 - sorted_pgs).cumsum() / (1.0 + np.arange(len(sorted_pgs)))
+    d = (cumulative_fdr <= fdr).sum()
+    pred_de_genes = sorted_genes[:d]
+    is_pred_de = np.zeros_like(cumulative_fdr).astype(bool)
+    is_pred_de[pred_de_genes] = True
+    return is_pred_de
 ```
 
-2. Differential Expression Analysis:
-```python
-def differential_activity(self, X, group1=None, group2=None, ...):
-    # Differential analysis implementation
-```
 
 ## Usage Example
 
