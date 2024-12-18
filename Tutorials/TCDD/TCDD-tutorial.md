@@ -64,7 +64,7 @@ These imports provide necessary functionality for:
 ## 2. Decoder Classes
 
 The decoder implementation includes several classes:
-1. `DecoderVEGA`: Main decoder for log-transformed data
+1. `DecoderVEGA`: Main decoder for preprocessed and transformed data
 2. `DecoderVEGACount`: Decoder for count data
 3. `SparseLayer`: Custom sparse layer implementation
 4. `CustomizedLinearFunction`: Custom autograd function
